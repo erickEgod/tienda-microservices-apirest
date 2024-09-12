@@ -1,0 +1,11 @@
+2) dockerizar cada microservicio y crear una red interna para que solo se exponga el puerto del apigateway.
+
+1) manejar la auth y autorization desde el apigateway (funciona como guard el apigateway) y quitar esto del microservicio.
+
+3) la autorizatión y autenticación solo está en el delete, todo: añadir a los endpoint correspondientes
+3.1) añadir que solo se puede eliminar y actualizar el mismo id (mismo usuario)
+4)Como hacer un tipado para el req en la apigateway
+
+INVESTIGAR:
+- almacenar el token en un lugar persistente (como una base de datos o una sesión).
+- refresh tokens se pueden almacenar en una base de datos o en Redis 

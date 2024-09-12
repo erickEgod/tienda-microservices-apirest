@@ -1,0 +1,78 @@
+Es mejor manejar la autenticación y la autorización desde el mismo apigateway, por lo que se hace:
+- Se crea un microservicio de auth para que retorne el TOKEN.
+- El apigateway recibe este token en la respuesta y lo maneja de la siguiente manera:
+
+1) Instalar dependencias 
+	- npm install @nestjs/passport @nestjs/jwt passport passport-jwt
+
+2) Crear una estrategia "jwt.strategy.ts"
+
+3) Es una clase que se extiende de  PassportStrategy(Strategy){constructor(configService: ConfigService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>("SECRET_WORD"), //debe coincidir con la del microservice
+    });
+  }
+
+  async validate(payload: any) {
+    return { userId: payload.id, role: payload.role }; // se agrega en req.user
+  }
+
+4.1) Poner la estrategia en auth.module
+JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>("SECRET_WORD"),
+        signOptions: { expiresIn: "1d" },
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy, ConfigService],
+ooooooooooooooo
+también podemos ponerle de fomra síncron
+4) Se crea un guard "jwtguard" que se extiende desde AuthGuard("jwt") que viene de @nestjs/passport
+
+5) Para personalizar los mensajes de error debemos manejar la solicitud con:
+	- hadleRequest(err:Error | null, user:User | any, context:Context)
+
+6) Para manejar los roles creamos un decorador role.decorator.ts:
+	- export const ROLES_KEY = "roles";
+export const Roles = (roles: Role) => SetMetadata(ROLES_KEY, roles);
+-Role es el enum que se creó para los roles
+
+7) Se crea un guard que extraiga el parámetro de Roles.decorator.
+	- export class RoleGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    //*Obtengo el rol determinado en el decorador de la ruta
+    const role = this.reflector.getAllAndOverride<Role>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    //*obtengo el user.role enviado en el guard de validación jwt
+    const { user } = context.switchToHttp().getRequest();
+    if (user.role === role || user.role === Role.User) return true;
+    console.log(user);
+    throw new UnauthorizedException(
+      "Solo admins pueden acceder a este recurso",
+    );
+  }
+
+8) Para recibir el req en el controlador usamos el tipado:
+	- @Request() req: ExpressRequest & { user: User }
+
+oooooooooooooooo
+
+Podemos crear un decorador para extraer unicamente el req.user que le enviamos en el jwtGuard para que se vea más bonito.
+
+- export const CurrentUserDecorator = createParamDecorator(
+  (data: unknown, context: ExecutionContext) => {
+    const req = context.switchToHttp().getRequest();
+    return req.user;
+  },
+);
+
